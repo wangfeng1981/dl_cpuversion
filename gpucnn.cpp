@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdio>
 #include <ctime>
-#include <cstdlib>
+#include <cstdlib> 
 #include <cstring>
 #include <vector>
 #include <iomanip>
@@ -67,26 +67,11 @@ cl gpucnn.obj array3d.obj lodepng.obj wftools.obj wImage.obj jsoncpp.obj "C:\Pro
 //#define USE_GPU_MODE 1
 
 
-//输出debug数据到文件
-//#define USE_DEBUG_OUTPUT 1
-//#define USE_DEBUG_OUTPUT2 1
-
-#ifdef USE_DEBUG_OUTPUT
-std::string g_debug_output_filename ;
-FILE* g_debug_output_fileptr = 0 ;
-#endif
-
-#ifdef USE_DEBUG_OUTPUT2
-std::string g_debug_output_filename2 ;
-FILE* g_debug_output_fileptr2 = 0 ;
-#endif
-
 
 #include "../../sharedcppcodes/array3d.h" 
 #include "../../sharedcppcodes/wImage.h" 
 #include "../../sharedcppcodes/wftools.h" 
 #include "../../sharedcppcodes/json.h" 
-
 
 
 
@@ -1870,7 +1855,7 @@ ImgProvider::ImgProvider(std::string filepath , float scale ){
 
 	
 	Json::Value root ;
-	std::ifstream file(filepath);
+	std::ifstream file(filepath.c_str() , std::ifstream::in);
 	file >> root;
 	file.close() ;
 	
@@ -2018,10 +2003,8 @@ void GConvNetwork::run(GDataProvider* provider ,
 	
 	//for repos
 	for(int irepo = 0 ; irepo<repoCount ; ++ irepo ){
-		#ifndef USE_DEBUG_OUTPUT 
-		provider->shuffle() ; //测试时不进行乱序排列
-		#endif
-		
+
+		provider->shuffle() ; //测试时不进行乱序排列		
 		
 		int ibat = 0 ;
 		int idata = 0 ;
@@ -2040,29 +2023,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 		while( idata  < dataCount ){
 			GLabeledData* pData = provider->getDataAt(idata) ;
 			
-			#ifdef USE_DEBUG_OUTPUT2
-			fprintf(g_debug_output_fileptr2 , 
-			"idata:%d label:%d id:%d p0:%8.4f p1:%8.4f\n" , 
-			idata , pData->m_label , pData->m_id , 
-			pData->m_dataPtr->getHostMemory()[0] , 
-			pData->m_dataPtr->getHostMemory()[1] ) ;
-			#endif
-
-			
-			//OK
-			#ifdef USE_DEBUG_OUTPUT
-			
-			int inputnx,inputny,inputnz,inputnk ;
-			provider->getDataDims(&inputnx,&inputny,&inputnz,&inputnk) ;
-			writeDebugLine("input label" , pData->m_label ) ;
-			writeDebugFloatArray( "input rgb" , pData->m_id , 
-									pData->m_dataPtr->getHostMemory() , 
-									inputnx,
-									inputny,
-									inputnz,
-									inputnk
-								) ;
-			#endif
 			
 			//第一步 前向传播计算估计分类
 			//1 forward 不设输入层  
@@ -2093,22 +2053,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 							 tlayer->m_ioXsize*tlayer->m_ioYsize , 
 							 tlayer->m_actiArray->getNFloat() ) ;
 							 
-							 #ifdef USE_DEBUG_OUTPUT
-							 writeDebugFloatArray("conv-layer" , ilayer , 
-									tlayer->m_kernelWeightsBiasArray->getHostMemory() , 
-									tlayer->m_kXsize , 
-									tlayer->m_kXsize , 
-									tlayer->m_inBandCount , 
-									tlayer->m_kernelCount
-								) ;
-							 writeDebugFloatArray("conv-acti" , ilayer , 
-									tlayer->m_actiArray->getHostMemory() , 
-									tlayer->m_ioXsize , 
-									tlayer->m_ioYsize , 
-									tlayer->m_kernelCount , 
-									1
-								) ;
-							 #endif
+							 
 						#else
 						
 						gpu_conv_forwardFromImage
@@ -2140,22 +2085,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 											tlayer->m_actiArray->getNFloat() ,
 											tlayer->m_dropoutMaskArray->getHostMemory()
 											) ;
-							 #ifdef USE_DEBUG_OUTPUT
-							 writeDebugFloatArray("full-layer " , ilayer , 
-									tlayer->m_biasAndWeights->getHostMemory() , 
-									tlayer->m_outsize , 
-									tlayer->m_insize+1 , 
-									1 ,  
-									1
-								) ;
-							 writeDebugFloatArray("full-acti " , ilayer , 
-									tlayer->m_actiArray->getHostMemory() , 
-									tlayer->m_outsize , 
-									1 , 
-									1 , 
-									1
-								) ;
-							 #endif				
+							
 
 						#else
 						gpu_full_forwardFromPrevLayer
@@ -2203,22 +2133,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 							 tlayer->m_ioXsize*tlayer->m_ioYsize , 
 							 tlayer->m_actiArray->getNFloat() 
 						) ;
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("conv-layer" , ilayer , 
-								tlayer->m_kernelWeightsBiasArray->getHostMemory() , 
-								tlayer->m_kXsize , 
-								tlayer->m_kXsize , 
-								tlayer->m_inBandCount ,  
-								tlayer->m_kernelCount
-							) ;
-							writeDebugFloatArray("conv-acti" , ilayer , 
-								tlayer->m_actiArray->getHostMemory() , 
-								tlayer->m_ioXsize , 
-								tlayer->m_ioYsize , 
-								tlayer->m_kernelCount , 
-								1
-							) ;
-							#endif	
 						#else
 						gpu_conv_forwardFromImage
 						<<<(tlayer->m_actiArray->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,this->m_nthreadPerBlock>>>
@@ -2265,22 +2179,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 											tlayer->m_dropoutMaskArray->getHostMemory()
 											) ;
 						}
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("full-layer" , ilayer , 
-								tlayer->m_biasAndWeights->getHostMemory() , 
-								tlayer->m_outsize , 
-								tlayer->m_insize+1 , 
-								1 ,  
-								1
-							) ;
-							writeDebugFloatArray("full-acti" , ilayer , 
-								tlayer->m_actiArray->getHostMemory() , 
-								tlayer->m_outsize , 
-								1 , 
-								1 , 
-								1
-							) ;
-							#endif	
 						#else
 						if( ilayer == layerCount-1 ){
 							//输出层
@@ -2338,23 +2236,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 											tlayer->m_dropoutMaskArray->getHostMemory()
 											) ;
 						}
-						
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("full-layer" , ilayer , 
-								tlayer->m_biasAndWeights->getHostMemory() , 
-								tlayer->m_outsize , 
-								tlayer->m_insize+1 , 
-								1 ,  
-								1
-							) ;
-							writeDebugFloatArray("full-acti" , ilayer , 
-								tlayer->m_actiArray->getHostMemory() , 
-								tlayer->m_outsize , 
-								1 , 
-								1 , 
-								1
-							) ;
-							#endif	
 						#else
 						if( ilayer == layerCount-1 ){
 							//输出层
@@ -2403,16 +2284,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 							tlayer->outXSize * tlayer->outYSize , 
 							tlayer->m_actiArray->getNFloat() ) ;
 							
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("pool-layer" , ilayer , 
-								tlayer->m_actiArray->getHostMemory() , 
-								tlayer->outXSize , 
-								tlayer->outYSize , 
-								tlayer->bandCount ,  
-								1
-							) ;
-
-							#endif	
 						#else
 						gpu_pool_forwardFromImage
 						<<<(tlayer->m_actiArray->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,this->m_nthreadPerBlock>>>
@@ -2454,16 +2325,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 							outlayer->m_actiArray->getHostMemory() , 
 							outlayer->m_actiArray->getNFloat() , 
 							&outposs ) ;
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("output softmax" , ilayer , 
-								outlayer->m_actiArray->getHostMemory() , 
-								outlayer->m_outsize , 
-								1 , 
-								1 , 
-								1 ) ;
-							writeDebugLine("iguess " , iguess) ;
-							writeDebugLine("poss % " , (int)(outposs*100) ) ;
-							#endif
+							
 						//将softmax值返回显存
 						//outlayer->m_actiArray->copyHost2Device() ;//need this line?
 						//统计样本分类正确错误和mse
@@ -2488,9 +2350,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 							exit(2) ;
 						}
 						#else 
-						/*
-						
-						*/
+
 						GLayer* templayer0 = m_layerPtrVector[0] ;
 						if( templayer0->getType() == GLayerTypeConv ){
 							GLayerConv* templayer00 = (GLayerConv*)templayer0 ;
@@ -2529,15 +2389,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 				outLayer->m_errorArray->getHostMemory() ,
 				outLayer->m_actiArray->getNFloat()
 			)  ;
-			//outLayer->m_errorArray->copyHost2Device() ;
-				#ifdef USE_DEBUG_OUTPUT
-				writeDebugFloatArray("output error" , layerCount-1 , 
-					outLayer->m_errorArray->getHostMemory() , 
-					outLayer->m_errorArray->getNFloat() , 
-					1 , 
-					1 , 
-					1 ) ;
-				#endif
 			#else 
 			gpu_full_backwardErrorFromLabel
 			<<<1,512>>>(
@@ -2546,12 +2397,8 @@ void GConvNetwork::run(GDataProvider* provider ,
 				outLayer->m_errorArray->getDevMemory() ,
 				outLayer->m_actiArray->getNFloat()
 			) ;
-			//cudaDeviceSynchronize();
 			#endif
-			//ok
-
 			//compute output error. 其他层后向传递误差
-			
 			for(int ilayer = layerCount-2 ; ilayer >= 0 ; -- ilayer ){
 				
 				GLayer* currLayer = m_layerPtrVector[ilayer]  ;
@@ -2574,14 +2421,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 												currlayer1->m_errorArray->getHostMemory() ,
 												currlayer1->m_dropoutMaskArray->getHostMemory()
 												) ;
-						#ifdef USE_DEBUG_OUTPUT
-						writeDebugFloatArray("full error" , ilayer , 
-							currlayer1->m_errorArray->getHostMemory() , 
-							currlayer1->m_errorArray->getNFloat() , 
-							1 , 
-							1 , 
-							1 ) ;
-						#endif
 					#else
 					gpu_full_backwardErrorFromNextLayer
 					<<<(currlayer1->m_errorArray->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,this->m_nthreadPerBlock>>>
@@ -2612,14 +2451,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 												currlayer1->m_errorArray->getHostMemory() ,
 												0
 												) ;
-						#ifdef USE_DEBUG_OUTPUT
-						writeDebugFloatArray("pool error" , ilayer , 
-							currlayer1->m_errorArray->getHostMemory() , 
-							currlayer1->outXSize , 
-							currlayer1->outYSize , 
-							currlayer1->bandCount , 
-							1 ) ;
-						#endif
 					#else
 					gpu_full_backwardErrorFromNextLayer
 					<<<(currlayer1->m_errorArray->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,this->m_nthreadPerBlock>>>
@@ -2653,14 +2484,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 						currlayer1->m_ioXsize , 
 						currlayer1->m_errorArray->getHostMemory() 
 					) ;
-						#ifdef USE_DEBUG_OUTPUT
-						writeDebugFloatArray("conv error" , ilayer , 
-							currlayer1->m_errorArray->getHostMemory() , 
-							currlayer1->m_ioXsize , 
-							currlayer1->m_ioXsize , 
-							currlayer1->m_kernelCount , 
-							1 ) ;
-						#endif
+
 					#else
 					gpu_conv_backwardErrorFromPoolLayer
 					<<<(currlayer1->m_errorArray->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,this->m_nthreadPerBlock>>>
@@ -2697,14 +2521,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 						currlayer1->outXSize  , 
 						currlayer1->m_errorArray->getHostMemory() 
 					) ;
-						#ifdef USE_DEBUG_OUTPUT
-						writeDebugFloatArray("pool error" , ilayer , 
-							currlayer1->m_errorArray->getHostMemory() , 
-							currlayer1->outXSize , 
-							currlayer1->outYSize , 
-							currlayer1->bandCount , 
-							1 ) ;
-						#endif
+
 					#else
 					gpu_image_backwardErrorFromConvLayer
 					<<<(currlayer1->m_errorArray->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,this->m_nthreadPerBlock>>>
@@ -2755,14 +2572,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 							currlayer1->m_biasAndWeightsChangesSum->getHostMemory() ,
 							currlayer1->m_biasAndWeightsChangesSum->getNFloat()
 							) ;
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("full-dwsum,prev-input" , ilayer , 
-								currlayer1->m_biasAndWeightsChangesSum->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize+1 , 
-								1 , 
-								1 ) ;//0709
-							#endif
+
 						#else
 						gpu_full_computeAndSumBiasAndWeightsChanges
 						<<<(currlayer1->m_biasAndWeightsChangesSum->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,
@@ -2796,14 +2606,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 							currlayer1->m_kernelWeightsBiasChangeSumArray->getNFloat() ,
 							currlayer1->m_kXsize * currlayer1->m_kXsize * currlayer1->m_inBandCount * currlayer1->m_kernelCount
 						) ;
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("conv-dwsum,prev-input" , ilayer , 
-								currlayer1->m_kernelWeightsBiasChangeSumArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount ) ;//
-							#endif
 						
 						#else
 						gpu_conv_computeAndSumKernelWeightsChanges
@@ -2850,14 +2652,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 							currlayer1->m_biasAndWeightsChangesSum->getHostMemory() ,
 							currlayer1->m_biasAndWeightsChangesSum->getNFloat()
 							) ;
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("full-dwsum,prev-full" , ilayer , 
-								currlayer1->m_biasAndWeightsChangesSum->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize+1 , 
-								1 , 
-								1 ) ;//
-							#endif
 						#else
 						gpu_full_computeAndSumBiasAndWeightsChanges
 						<<<(currlayer1->m_biasAndWeightsChangesSum->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,
@@ -2888,14 +2682,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 							currlayer1->m_biasAndWeightsChangesSum->getHostMemory() ,
 							currlayer1->m_biasAndWeightsChangesSum->getNFloat()
 							) ;
-								#ifdef USE_DEBUG_OUTPUT
-								writeDebugFloatArray("full-dwsum,prev-pool" , ilayer , 
-									currlayer1->m_biasAndWeightsChangesSum->getHostMemory() , 
-									currlayer1->m_outsize , 
-									currlayer1->m_insize+1 , 
-									1 , 
-									1 ) ;//
-								#endif
+
 						#else
 						gpu_full_computeAndSumBiasAndWeightsChanges
 						<<<(currlayer1->m_biasAndWeightsChangesSum->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,
@@ -2934,14 +2721,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 							currlayer1->m_kernelWeightsBiasChangeSumArray->getNFloat() ,
 							currlayer1->m_kXsize * currlayer1->m_kXsize * currlayer1->m_inBandCount * currlayer1->m_kernelCount
 						) ;
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("conv-dwsum,prev-pool" , ilayer , 
-								currlayer1->m_kernelWeightsBiasChangeSumArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount ) ;//
-							#endif
 
 						#else
 						gpu_conv_computeAndSumKernelWeightsChanges
@@ -2977,12 +2756,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 			//4 每当计算的数据达到批次Size的时候，
 			//计算bias和weights的变化平均值并更新bias和weights
 			if( ibat == batchSize ){
-				#ifdef USE_DEBUG_OUTPUT
-				writeDebugLine("ibat==batchSize , ibat:" ,ibat ) ;
-				writeDebugLine("batchsize:" , batchSize) ;
-				writeDebugLineFloat("study " , studyRate) ;
-				writeDebugLineFloat("momentum " , momentum) ;
-				#endif
 				ibat = 0 ;
 				//5-1 update bias and weights.
 				//对每个层次更新bias和weights
@@ -2992,26 +2765,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 					if( currLayer->getType()==GLayerTypeFull ){
 						GLayerFull* currlayer1 = (GLayerFull*)currLayer ;
 						#ifndef USE_GPU_MODE
-							#ifdef USE_DEBUG_OUTPUT 
-							writeDebugFloatArray("before updated full last changes dw" , ilayer , 
-								currlayer1->m_lastBiasAndWeightsChanges->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize + 1  , 
-								1 , 
-								1 ) ;//
-							writeDebugFloatArray("before update full dwsum" , ilayer , 
-								currlayer1->m_biasAndWeightsChangesSum->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize + 1, 
-								1 , 
-								1 ) ;//
-							writeDebugFloatArray("before updated full updated dw" , ilayer , 
-								currlayer1->m_biasAndWeights->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize + 1  , 
-								1 , 
-								1 ) ;//
-							#endif
 						cpu_updateBiasAndWeights (
 							studyRate , 
 							momentum , 
@@ -3021,27 +2774,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 							currlayer1->m_lastBiasAndWeightsChanges->getHostMemory() , 
 							currlayer1->m_biasAndWeights->getHostMemory() 
 							) ;
-							#ifdef USE_DEBUG_OUTPUT 
-							writeDebugFloatArray("after updated full last changes dw" , ilayer , 
-								currlayer1->m_lastBiasAndWeightsChanges->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize + 1  , 
-								1 , 
-								1 ) ;//
-							writeDebugFloatArray("after update full dwsum" , ilayer , 
-								currlayer1->m_biasAndWeightsChangesSum->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize + 1, 
-								1 , 
-								1 ) ;//
-							writeDebugFloatArray("after updated full updated dw" , ilayer , 
-								currlayer1->m_biasAndWeights->getHostMemory() , 
-								currlayer1->m_outsize , 
-								currlayer1->m_insize + 1  , 
-								1 , 
-								1 ) ;//
-							
-							#endif
 							
 						#else
 						gpu_updateBiasAndWeights
@@ -3066,36 +2798,7 @@ void GConvNetwork::run(GDataProvider* provider ,
 					}else if(currLayer->getType()==GLayerTypeConv) {
 						GLayerConv* currlayer1 = (GLayerConv*)currLayer ;
 						#ifndef USE_GPU_MODE
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("before updated conv last changes dw" , ilayer , 
-								currlayer1->m_kernelWeightsBiasLastChangeArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount ) ;//
-							writeDebugFloatArray("before update conv dwsum" , ilayer , 
-								currlayer1->m_kernelWeightsBiasChangeSumArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount  ) ;//
-							writeDebugFloatArray("before updated conv updated dw" , ilayer , 
-								currlayer1->m_kernelWeightsBiasArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount ) ;//
 							
-							#endif
-							
-							#ifdef USE_DEBUG_OUTPUT2 
-							fprintf(g_debug_output_fileptr2 , 
-							"before update weights w0:%8.4f w1:%8.4f w2:%8.4f\n" , 
-							currlayer1->m_kernelWeightsBiasArray->getHostMemory()[0] , 
-							currlayer1->m_kernelWeightsBiasArray->getHostMemory()[1] , 
-							currlayer1->m_kernelWeightsBiasArray->getHostMemory()[2] 
-							) ;
-							#endif
 						cpu_updateBiasAndWeights (
 							studyRate , 
 							momentum , 
@@ -3105,36 +2808,8 @@ void GConvNetwork::run(GDataProvider* provider ,
 							currlayer1->m_kernelWeightsBiasLastChangeArray->getHostMemory() , 
 							currlayer1->m_kernelWeightsBiasArray->getHostMemory() 
 							) ;
-							#ifdef USE_DEBUG_OUTPUT
-							writeDebugFloatArray("after updated conv last changes dw" , ilayer , 
-								currlayer1->m_kernelWeightsBiasLastChangeArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount ) ;//
-							writeDebugFloatArray("after update conv dwsum" , ilayer , 
-								currlayer1->m_kernelWeightsBiasChangeSumArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount  ) ;//
-							writeDebugFloatArray("after updated conv updated dw" , ilayer , 
-								currlayer1->m_kernelWeightsBiasArray->getHostMemory() , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_kXsize , 
-								currlayer1->m_inBandCount , 
-								currlayer1->m_kernelCount ) ;//
 							
-							#endif
 							
-							#ifdef USE_DEBUG_OUTPUT2 
-							fprintf(g_debug_output_fileptr2 , 
-							"After  update weights w0:%8.4f w1:%8.4f w2:%8.4f\n" , 
-							currlayer1->m_kernelWeightsBiasArray->getHostMemory()[0] , 
-							currlayer1->m_kernelWeightsBiasArray->getHostMemory()[1] , 
-							currlayer1->m_kernelWeightsBiasArray->getHostMemory()[2] 
-							) ;
-							#endif
 						#else
 						gpu_updateBiasAndWeights
 						<<<(currlayer1->m_kernelWeightsBiasChangeSumArray->getNFloat()+this->m_nthreadPerBlock-1)/this->m_nthreadPerBlock,
@@ -3154,14 +2829,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 					
 					
 				}
-
-				#ifdef USE_DEBUG_OUTPUT
-				static int static_debug_output_n = 0 ;
-				static_debug_output_n ++ ;
-				if( static_debug_output_n==5 ){
-					exit(0) ;
-				}
-				#endif
 
 				//jump out this repo. 检查下个批次是否超出总样本数量
 				//如果超过总样本数，结束本次repo，进入下一个repo
@@ -3201,10 +2868,6 @@ void GConvNetwork::run(GDataProvider* provider ,
 		<<" ; w1:"<<std::setprecision(4)<<weight1
 		<<std::endl ;
 		
-		#ifdef USE_DEBUG_OUTPUT2
-		fprintf(g_debug_output_fileptr2 , "end irepo:%d mse:%8.4f nG:%8.4f nB:%8.4f\n" , 
-		irepo , repoMse , repoGoodPercent , repoBadPercent ) ;
-		#endif
 		
 		//repo mse小于阈值退出训练
 		if( repoMse < finishMse ){
@@ -3288,7 +2951,7 @@ void GConvNetwork::loadFromFile( const char* filepath ) {
 	
 	Json::Value root;
 
-	std::ifstream file(theFilePath);
+	std::ifstream file(theFilePath.c_str() ,  std::ifstream::in);
 	file >> root;
 	file.close() ;
 	
@@ -3501,38 +3164,6 @@ void GConvNetwork::visualizeFromActivationValueArray( const char* prefix, int sa
 		return ;
 	}
 	
-	//set all activations zero but pixelIndex
-	/*
-	if( theLayerPtr->getType() == GLayerTypeConv ){
-		GLayerConv* theConvLayer = (GLayerConv*)theLayerPtr ;
-		for(int it =  0 ; it<theConvLayer->m_actiArray->getNFloat() ; ++ it  ){
-			for(int ia = 0 ; ia < arrSize ; ++ ia ){
-				if( it != pixelIndexArr[ia] ){
-					theConvLayer->m_actiArray->getHostMemory()[it] = 0.0f ;
-				}else{
-					//relu
-					theConvLayer->m_actiArray->getHostMemory()[it] = fmaxf(0.0f , pixelValueArr[ia] );
-					break ;
-				}
-			}
-		}
-	}else{
-		GLayerPool* thePoolLayer = (GLayerPool*)theLayerPtr ;
-		for(int it =  0 ; it<thePoolLayer->m_actiArray->getNFloat() ; ++ it  ){
-			for(int ia = 0 ; ia < arrSize ; ++ ia ){ 
-				if( it != pixelIndexArr[ia] ){
-					thePoolLayer->m_actiArray->getHostMemory()[it] = 0.0f ;
-				}else{
-					//relu
-					thePoolLayer->m_actiArray->getHostMemory()[it] = fmaxf(0.0f , pixelValueArr[ia] );
-					break ;
-				}
-			}
-		}
-	}
-	 * */
-	
-	
 	//第一个层的输入尺寸
 	GLayerConv* layer0 = (GLayerConv*)this->m_layerPtrVector[0] ;
 	int nfloatOfImage = layer0->m_ioXsize * layer0->m_ioYsize * layer0->m_inBandCount ;
@@ -3651,34 +3282,7 @@ std::string currentDateTimeString( std::string ext){
     return string(buf)+ext;
 }
 
-void writeDebugFloatArray( const char* name, int index, float* farr , int nx,int ny,int nz,int nk ){
-	#ifdef USE_DEBUG_OUTPUT
-	fprintf( g_debug_output_fileptr , "\n*** %s %d ***\n" , name , index ) ;
-	int i = 0 ;
-	for(int ik = 0 ; ik<nk ; ++ ik ){
-		for(int iz = 0 ; iz < nz ; ++ iz ){
-			fprintf(g_debug_output_fileptr , "* %02d %02d *\n" , ik , iz ) ;
-			for(int iy = 0 ; iy < ny ; ++ iy ){
-				for(int ix = 0 ; ix < nx ; ++ ix ){
-					fprintf(g_debug_output_fileptr , "%8.4f " , farr[i++] ) ;
-				}
-				fprintf(g_debug_output_fileptr , "\n" ) ;
-			}
-		}
-	}
-	fprintf(g_debug_output_fileptr , "end arr \n" ) ;
-	#endif
-}
-void writeDebugLine( const char* name , int index  ){
-	#ifdef USE_DEBUG_OUTPUT
-	fprintf( g_debug_output_fileptr , "\n--- %s %d ---\n" , name , index ) ;
-	#endif
-}
-void writeDebugLineFloat( const char* name , float val  ){
-	#ifdef USE_DEBUG_OUTPUT
-	fprintf( g_debug_output_fileptr , "\n--- %s %8.4f ---\n" , name , val ) ;
-	#endif
-}
+
 
 
 int main(int argc , char* argv[] ){
@@ -3693,24 +3297,7 @@ int main(int argc , char* argv[] ){
 	std::cout<<"Use GPU mode!!!"<<std::endl ;
 	#endif
 	
-	#ifdef USE_DEBUG_OUTPUT 
-	std::cout<<"Use debug output !"<<std::endl ;
-	g_debug_output_filename = currentDateTimeString("") ;
-	std::cout<<"debug output filename:"<<g_debug_output_filename<<std::endl ;
-	g_debug_output_fileptr = fopen( g_debug_output_filename.c_str() , "w" ) ;
-	#endif
-	
-	#ifndef USE_DEBUG_OUTPUT
-	srand (time(NULL));//20170710
-	#endif
-	
-	
-	#ifdef USE_DEBUG_OUTPUT2
-	std::cout<<"Use debug output2 !"<<std::endl ;
-	g_debug_output_filename2 = currentDateTimeString("2.log") ;
-	std::cout<<"debug output2 filename:"<<g_debug_output_filename2<<std::endl ;
-	g_debug_output_fileptr2 = fopen( g_debug_output_filename2.c_str() , "w" ) ;
-	#endif
+	srand (time(NULL));//20170710	
 	
 	bool enterClassifyMode = false ;
 	GConvNetwork gnet ;
@@ -3804,16 +3391,6 @@ int main(int argc , char* argv[] ){
 		std::cout<<""<<std::endl ;
 	}
 	 
-	#ifdef USE_DEBUG_OUTPUT
-	fclose(g_debug_output_fileptr) ;
-	g_debug_output_fileptr = 0 ;
-	#endif
-	
-	#ifdef USE_DEBUG_OUTPUT2
-	fclose(g_debug_output_fileptr2) ;
-	g_debug_output_fileptr2 = 0 ;
-	#endif
-	
 	return 0 ;
 }
 
