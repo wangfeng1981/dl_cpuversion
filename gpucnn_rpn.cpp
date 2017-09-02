@@ -339,6 +339,7 @@ GLayerFull::GLayerFull(Json::Value& jsonNode ){
 	assert( m_type == GLayerTypeFull ) ;
 	m_insize = jsonNode["input-x-size"].asInt() ;
 	m_outsize = jsonNode["output-x-size"].asInt() ;
+	m_layerName = jsonNode["layer-name"].asString() ;
 
 	this->m_actiArray = new GFloatArray(m_outsize,false) ;
 	this->m_dropoutMaskArray = new GFloatArray(m_outsize,false) ;
@@ -559,6 +560,7 @@ GLayerConv::GLayerConv(int inx,int iny,int inz,int knx,int kny,int nk)
 	m_ioYsize = iny ; //输入输出影像的y大小
 	m_ioPixelCountPerBand = m_ioXsize * m_ioYsize ;//输入输出像素个数 m_ioPixelCount
 	this->m_fixWeightsAndBias = false ;
+
 	
 	m_kXsize = knx ;  //卷积x大小必须奇数
 	m_kYsize = kny ;  //卷积y大小必须奇数
@@ -591,6 +593,7 @@ GLayerConv::GLayerConv(Json::Value& jsonNode ) {
 	}else{
 		this->m_fixWeightsAndBias = false ;
 	}
+	m_layerName = jsonNode["layer-name"].asString() ;
 	
 	m_ioXsize = jsonNode["input-x-size"].asInt() ; ; //输入输出影像的x大小
 	m_ioYsize = jsonNode["input-y-size"].asInt() ; ; //输入输出影像的y大小
@@ -717,6 +720,7 @@ GLayerPool::GLayerPool(Json::Value& jsonNode )
 	bandCount = jsonNode["input-z-size"].asInt()  ;
 	outXSize = inXSize/2 ;
 	outYSize = inYSize/2 ;
+	m_layerName = jsonNode["layer-name"].asString() ;
 	
 	if( jsonNode.isMember("fix-weights-bias") ){
 		this->m_fixWeightsAndBias = jsonNode["fix-weights-bias"].asBool() ;
@@ -3458,6 +3462,8 @@ void GConvNetwork::loadFromFile( const char* filepath ) {
 	std::cout<<"Number of Layers:"<<numberOfLayers<<std::endl ;
 	for(int i = 0 ; i < numberOfLayers ; ++ i ){
 		Json::Value layerNode = root["layers"][i] ;
+		std::string layerName = root["layers"][i]["layer-name"].asString() ;
+		std::cout<<"loading:"<<layerName <<std::endl ;
 		GLayerType layerType = (GLayerType) layerNode["layer-type"].asInt() ;
 		if( layerType == GLayerTypeConv ){
 			GLayerConv* layerPtr = new GLayerConv(layerNode) ;
